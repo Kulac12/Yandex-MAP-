@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yandex MAP</title>
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=fee00c77-b685-4676-9e25-5acc3f2c2286&lang=en_TR" type="text/javascript"></script>
+   
+    <style>
+        body { 
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+        .sidebar {
+            width: 30%;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+        .sidebar input, .sidebar button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .sidebar button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        .sidebar button:hover {
+            background-color: #0056b3;
+        }
+        #map {
+            flex-grow: 1; /* harita alanı yan panelin kaplamadığı bütün alanı kaplasın */
+            height: 100vh;
+        }
+    </style>
+    
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Yandex Rota Oluşturma </h2>
+        <input id="start-location" type="text" placeholder="Başlangıç Lokasyonu">
+        <input id="end-location" type="text" placeholder="Bitiş Lokasyonu">
+        <button onclick="searchLocations()">Rota Oluştur</button>
+        
+        <h3>Rota Bilgisi</h3>
+        <p id="route-info">Süre: - <br> Mesafe: -</p>
+        
+    </div>
+    <div id="map"></div>
+    <script type="text/javascript">
+        ymaps.ready(init); //yandex api hazır hale geldiğinde çağrılır
+        let myMap; //harita ilk görünüm (Trkiye konumunu verdik)
+        let startSuggestView, endSuggestView; //başlangıç bitiş öneri
+        let startPoint, endPoint; //başlangıç bitiş nokatalrı
+
+        function init() { //haritayı ve ilk başlangıç noktası(Türkiye) gösterir.
+            myMap = new ymaps.Map('map', {
+                center: [39.92, 32.85], // Türkiye'yi merkez olarak alalım
+                zoom: 7
+            });
+
+            //başlangıç ve bitiş noktaları için metin girişi yaparken öneri alınması 
+            startSuggestView = new ymaps.SuggestView('start-location', { results: 5 });
+            endSuggestView = new ymaps.SuggestView('end-location', { results: 5 });
+
+            //başlangıç noktası öneri seçimi //event.get('item').value: Kullanıcının seçtiği önerinin değerini alır.
+            startSuggestView.events.add('select', function (event) {
+                setPoint(event.get('item').value, 'start');
+            });
+
+            endSuggestView.events.add('select', function (event) {
+                setPoint(event.get('item').value, 'end');
+            });
+           
+
+
+            myMap.controls.add(searchControl);
+
+        }
+
+        //query(sorgu):verilen query değeri ile bir nokta belirler
+        function setPoint(query, type) {
+            ymaps.geocode(query).then(function (res) { //verilen query i koordinatlara dönüştürür. res ile sonuç değer döner
+                const firstGeoObject = res.geoObjects.get(0); //verilen ilk coğrafi nesneyi al
+                if (firstGeoObject) {
+                    if (type === 'start') {
+                        if (startPoint) {
+                            myMap.geoObjects.remove(startPoint);
+                        }
+                        startPoint = firstGeoObject;
+                    } else if (type === 'end') {
+                        if (endPoint) {
+                            myMap.geoObjects.remove(endPoint);
+                        }
+                        endPoint = firstGeoObject;
+                    }
+                    myMap.geoObjects.add(firstGeoObject);
+                    myMap.setCenter(firstGeoObject.geometry.getCoordinates(), 14);
+                }
+            });
+        }
+
+        //rota atamayı hesaplayan fonksiynu
+        function searchLocations() {
+            const startLocation = document.getElementById('start-location').value;
+            const endLocation = document.getElementById('end-location').value;
+            
+            if (startLocation && endLocation) {
+                ymaps.route([startLocation, endLocation]).then(function (route) { //verilen iki lokasyon arasında rota oluşturur
+                    myMap.geoObjects.add(route);  //haritaya eklenir rota
+                    const distance = route.getLength(); // in meters rota mesafesi hesaplanır
+                    const duration = route.getJamsTime(); // in seconds rota süresi hesaplanır
+
+                    document.getElementById('route-info').innerHTML = //route-info elementinin içeriğ güncellenir.
+                        'Süre: ' + (duration / 3600).toFixed(2) + ' hr <br> Zaman: ' + (distance / 1000).toFixed(2) + ' km';
+                }, function (error) {
+                    alert('Error: ' + error.message); //rota oluşmazsa hata mesajı veriri
+                });
+            }
+        }
+
+        
+    </script>
+</body>
+</html>
